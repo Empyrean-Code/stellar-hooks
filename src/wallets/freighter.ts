@@ -1,10 +1,12 @@
 import {
-  isConnected,
-  requestAccess,
   signTransaction as freighterSignTx,
   signAuthEntry as freighterSignAuthEntry,
   signMessage as freighterSignMessage,
 } from "@stellar/freighter-api";
+import {
+  normalizeIsConnected,
+  normalizeRequestAccess,
+} from "./freighter-normalization";
 import type { WalletAdapter } from "./types";
 
 export function createFreighterAdapter(): WalletAdapter {
@@ -17,8 +19,8 @@ export function createFreighterAdapter(): WalletAdapter {
     },
 
     async connect(): Promise<string> {
-      const { address, error } = await requestAccess();
-      if (error) throw new Error(error.message || String(error));
+      const { address, error } = await normalizeRequestAccess();
+      if (error) throw error;
       if (!address) throw new Error("No address returned from Freighter");
       return address;
     },
@@ -54,7 +56,7 @@ export function createFreighterAdapter(): WalletAdapter {
 
 export async function isFreighterInstalled(): Promise<boolean> {
   try {
-    const { isConnected: connected } = await isConnected();
+    const { isConnected: connected } = await normalizeIsConnected();
     return !!connected;
   } catch {
     return false;

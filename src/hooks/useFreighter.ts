@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  isConnected,
   isAllowed,
-  getAddress,
-  getNetworkDetails,
-  requestAccess,
   signTransaction,
   signAuthEntry,
   signMessage,
 } from "@stellar/freighter-api";
 import { useOptionalStellarContext } from "../context";
+import {
+  normalizeGetAddress,
+  normalizeGetNetworkDetails,
+  normalizeIsConnected,
+  normalizeRequestAccess,
+} from "../wallets/freighter-normalization";
 import type {
   FreighterState,
   SignTransactionOptions,
@@ -100,7 +102,7 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
     async function probe() {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
       try {
-        const { isConnected: connected, error: connErr } = await isConnected();
+        const { isConnected: connected, error: connErr } = await normalizeIsConnected();
         if (cancelled) return;
 
         if (connErr || !connected) {
@@ -108,11 +110,11 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
           return;
         }
 
-        const { address, error: addrErr } = await getAddress();
+        const { address, error: addrErr } = await normalizeGetAddress();
         if (cancelled) return;
 
         if (!addrErr && address) {
-          const networkDetails = await getNetworkDetails();
+          const networkDetails = await normalizeGetNetworkDetails();
           if (cancelled) return;
           setState({
             isInstalled: true,
@@ -130,11 +132,11 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
             if (cancelled) return;
 
             if (allowed) {
-              const { address: reconAddress, error: reconErr } = await requestAccess();
+              const { address: reconAddress, error: reconErr } = await normalizeRequestAccess();
               if (cancelled) return;
 
               if (!reconErr && reconAddress) {
-                const networkDetails = await getNetworkDetails();
+                const networkDetails = await normalizeGetNetworkDetails();
                 if (cancelled) return;
                 setState({
                   isInstalled: true,
@@ -175,13 +177,26 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
   const connect = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
-      const { address, error } = await requestAccess();
-      if (error) {
-        setState((prev) => ({ ...prev, isLoading: false, error: new Error(error.message || String(error)) }));
-        return;
-      }
-      if (!address) {
-        setState((prev) => ({ ...prev, isLoading: false, error: new Error("Failed to get address") }));
+      try {
+        const { address, error } = await normalizeRequestAccess();
+        if (error) {
+          dispatch({ type: "SET_ERROR", payload: error });
+          return;
+        }
+        if (!address) {
+          dispatch({ type: "SET_ERROR", payload: new Error("Failed to get address") });
+          return;
+        }
+
+        const networkDetails = await normalizeGetNetworkDetails();
+        dispatch({
+          type: "SET_CONNECTED",
+          publicKey: asPublicKey(address),
+          network: networkDetails.network ?? "",
+          networkPassphrase: networkDetails.networkPassphrase ?? "",
+        });
+      } catch (innerErr) {
+        dispatch({ type: "SET_ERROR", payload: innerErr instanceof Error ? innerErr : new Error(String(innerErr)) });
         return;
       }
 
