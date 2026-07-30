@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useHookActivityDebug } from "../devtools/useHookActivityDebug";
+import { StellarHookError } from "../utils/errors";
 
 export interface UseStellarQueryOptions<T> {
   enabled?: boolean;
@@ -13,7 +14,7 @@ export interface UseStellarQueryResult<T> {
   data: T | null;
   isLoading: boolean;
   isRefetching: boolean;
-  error: Error | null;
+  error: StellarHookError | null;
   lastFetchedAt: Date | null;
   refetch: () => Promise<void>;
 }
@@ -22,14 +23,14 @@ interface QueryState<T> {
   data: T | null;
   isLoading: boolean;
   isRefetching: boolean;
-  error: Error | null;
+  error: StellarHookError | null;
   lastFetchedAt: Date | null;
 }
 
 type QueryAction<T> =
   | { type: "FETCH_START"; hasData: boolean }
   | { type: "FETCH_SUCCESS"; payload: T | null }
-  | { type: "FETCH_ERROR"; payload: Error }
+  | { type: "FETCH_ERROR"; payload: StellarHookError }
   | { type: "RESET"; payload: T | null };
 
 function reducer<T>(state: QueryState<T>, action: QueryAction<T>): QueryState<T> {
@@ -129,7 +130,7 @@ export function useStellarQuery<T>(
       if (err instanceof Error && err.name === "AbortError") return;
       dispatch({
         type: "FETCH_ERROR",
-        payload: err instanceof Error ? err : new Error(String(err)),
+        payload: StellarHookError.from(err),
       });
     } finally {
       isFetchingRef.current = false;
