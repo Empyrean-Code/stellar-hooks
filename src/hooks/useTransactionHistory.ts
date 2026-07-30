@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Horizon } from '@stellar/stellar-sdk';
 import { useStellarContext } from '../context';
 import { getHorizonServer } from '../utils/memoizedServers';
@@ -71,11 +71,15 @@ export function useTransactionHistory(
   const [hasNext, setHasNext] = useState<boolean>(true);
   const [hasPrevious, setHasPrevious] = useState<boolean>(false);
 
+  const fetchIdRef = useRef(0);
+
   const fetchTransactions = useCallback(
     async (cursor?: string, direction: 'next' | 'prev' = 'next') => {
       if (!publicKey) {
         return;
       }
+
+      const id = ++fetchIdRef.current;
 
       setIsLoading(true);
       setError(null);
@@ -99,6 +103,8 @@ export function useTransactionHistory(
         }
 
         const response = await builder.call();
+
+        if (id !== fetchIdRef.current) return;
 
         if (direction === 'next') {
           if (cursor) {
@@ -129,9 +135,13 @@ export function useTransactionHistory(
           setHasPrevious(response.records.length >= limit);
         }
       } catch (e) {
-        setError(e as Error);
+        if (id === fetchIdRef.current) {
+          setError(e as Error);
+        }
       } finally {
-        setIsLoading(false);
+        if (id === fetchIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [publicKey, server, limit, order, includeFailed]
@@ -144,6 +154,9 @@ export function useTransactionHistory(
     setHasNext(true);
     setHasPrevious(false);
     fetchTransactions();
+    return () => {
+      fetchIdRef.current += 1;
+    };
   }, [fetchTransactions]);
 
   const fetchNextPage = useCallback(() => {

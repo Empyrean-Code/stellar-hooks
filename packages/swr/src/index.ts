@@ -66,3 +66,5 @@ export type {
   StellarContextValue,
   StellarHooksProviderProps,
 } from "stellar-hooks";
+
+export const packageName = "@stellar-hooks/swr";

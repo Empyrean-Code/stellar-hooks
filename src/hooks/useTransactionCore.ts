@@ -18,11 +18,20 @@ import { sleep, backoff } from "../utils";
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 
+export interface RetryStrategy {
+  /** Maximum number of consecutive network failures allowed before giving up. Default: 3 */
+  maxRetries?: number;
+  /** Multiplier for exponential backoff on retries. Default: 1.5 */
+  backoffMultiplier?: number;
+}
+
 export interface UseTransactionCoreOptions {
   /** "soroban" uses rpc; "classic" uses Horizon. Default: "soroban" */
   mode?: "soroban" | "classic";
   /** Polling timeout in seconds. Default: 60 */
   timeoutSeconds?: number;
+  /** Configuration for handling network failures during polling */
+  retryStrategy?: RetryStrategy;
   /** Friendly label shown in the development hook overlay. */
   debugLabel?: string;
   /** Callback fired when the transaction is successfully confirmed. */
@@ -77,10 +86,12 @@ export function useTransactionCore(
   const {
     mode = "soroban",
     timeoutSeconds = 60,
+    retryStrategy = {},
     debugLabel = "useTransactionCore",
     onSuccess,
     onError,
   } = options;
+  const { maxRetries = 3, backoffMultiplier = 1.5 } = retryStrategy;
   const { config } = useStellarContext();
   const [state, dispatch] = useReducer(reducer, initial);
 
@@ -116,12 +127,30 @@ export function useTransactionCore(
 
           const deadline = Date.now() + timeoutSeconds * 1000;
           let attempt = 0;
+          let consecutiveFailures = 0;
 
           while (Date.now() < deadline) {
             await sleep(backoff(attempt));
             attempt++;
 
-            const getResult = await server.getTransaction(txHash);
+            let getResult;
+            try {
+              getResult = await server.getTransaction(txHash);
+              consecutiveFailures = 0; // Reset failures on successful network request
+            } catch (pollingErr) {
+              consecutiveFailures++;
+              const isNetworkError = pollingErr instanceof Error && 
+                (pollingErr.message.includes("NetworkError") || pollingErr.message.includes("ECONNREFUSED") || pollingErr.message.includes("timeout") || pollingErr.message.includes("fetch"));
+                
+              if (isNetworkError && consecutiveFailures <= maxRetries) {
+                console.warn(`[useTransactionCore] Polling network error. Retry ${consecutiveFailures}/${maxRetries}...`);
+                const retryDelay = 1000 * Math.pow(backoffMultiplier, consecutiveFailures);
+                await sleep(retryDelay);
+                continue; // Skip the rest of this loop tick and try polling again
+              } else {
+                throw pollingErr; // Exceeded retries or non-network error, bubble up to outer catch
+              }
+            }
 
             if (getResult.status === rpc.Api.GetTransactionStatus.SUCCESS) {
               dispatch({ type: "SUCCESS", hash: asTxHash(txHash) });
@@ -156,7 +185,6 @@ export function useTransactionCore(
           onSuccess?.(result.hash);
         }
       } catch (err) {
-        // Determine if this is a network error or other error
         let error: StellarTransactionError;
         const message = err instanceof Error ? err.message : String(err);
 
@@ -182,7 +210,7 @@ export function useTransactionCore(
         onError?.(error);
       }
     },
-    [mode, config, timeoutSeconds, onSuccess, onError]
+    [mode, config, timeoutSeconds, maxRetries, backoffMultiplier, onSuccess, onError]
   );
 
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);

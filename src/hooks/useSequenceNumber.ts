@@ -39,7 +39,7 @@ export function useSequenceNumber(
   const { config } = useStellarContext();
   const [incrementCount, setIncrementCount] = useState(0);
 
-  const fetcher = useCallback(async () => {
+  const fetcher = useCallback(async (signal?: AbortSignal) => {
     if (!publicKey) return null;
     const server = getHorizonServer(config.horizonUrl);
     const account = await server.loadAccount(publicKey);
@@ -49,9 +49,8 @@ export function useSequenceNumber(
   const state = useStellarQuery<string | null>(fetcher, {
     enabled: enabled && Boolean(publicKey),
     initialData: null,
-  });
     debugLabel: "useSequenceNumber",
-
+  });
 
   const refresh = useCallback(async () => {
     setIncrementCount(0);
