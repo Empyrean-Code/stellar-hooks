@@ -134,6 +134,8 @@ export type {
 export { useMultiSig } from "./useMultiSig";
 export type {
   BuildOptions,
+  SignerEntry,
+  Thresholds,
   UseMultiSigOptions,
   UseMultiSigReturn,
 } from "./useMultiSig";
@@ -157,9 +159,18 @@ export { useLiquidityPool } from "./useLiquidityPool";
 export type {
   LiquidityPoolReserve,
   LiquidityPoolRecord,
+  PoolPrice,
+  LiquidityPoolDepositParams,
+  LiquidityPoolWithdrawParams,
   UseLiquidityPoolOptions,
   UseLiquidityPoolReturn,
 } from "./useLiquidityPool";
+
+export { useFeeBumpTransaction } from "./useFeeBumpTransaction";
+export type {
+  UseFeeBumpTransactionOptions,
+  UseFeeBumpTransactionReturn,
+} from "./useFeeBumpTransaction";
 
 export { useAccountLiquidityPositions } from "./useAccountLiquidityPositions";
 export type {
