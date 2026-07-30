@@ -2,6 +2,8 @@ import {
   isConnected,
   requestAccess,
   signTransaction as freighterSignTx,
+  signAuthEntry as freighterSignAuthEntry,
+  signMessage as freighterSignMessage,
 } from "@stellar/freighter-api";
 import type { WalletAdapter } from "./types";
 
@@ -31,6 +33,21 @@ export function createFreighterAdapter(): WalletAdapter {
       });
       if (error) throw new Error(error.message);
       return signedTxXdr;
+    },
+
+    async signMessage(message: string, opts?: { accountToSign?: string }): Promise<string> {
+      const address = opts?.accountToSign;
+      const { signedMessage, error } = await freighterSignMessage(message, { address });
+      if (error) throw new Error(error.message);
+      if (!signedMessage) throw new Error("No signed message returned from Freighter");
+      return signedMessage.toString();
+    },
+
+    async signAuthEntry(entryPreimageXdr: string): Promise<string> {
+      const { signedAuthEntry, error } = await freighterSignAuthEntry(entryPreimageXdr);
+      if (error) throw new Error(error.message);
+      if (!signedAuthEntry) throw new Error("No signed auth entry returned from Freighter");
+      return signedAuthEntry;
     },
   };
 }
