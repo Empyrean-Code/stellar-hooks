@@ -93,6 +93,7 @@ export function useOrderBook(
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchIdRef = useRef(0);
 
   // Compare assets by their canonical string form rather than object
   // reference, and keep the useCallback deps array free of inline
@@ -101,18 +102,25 @@ export function useOrderBook(
   const buyingKey = buying.toString();
 
   const refetch = useCallback(async () => {
+    const id = ++fetchIdRef.current;
+
     setIsLoading(true);
     setError(null);
 
     try {
       const server = new Horizon.Server(config.horizonUrl);
       const ob = await server.orderbook(selling, buying).limit(limit).call();
+      if (id !== fetchIdRef.current) return;
       setRaw(ob as unknown as OrderBookRecord);
       setLastFetchedAt(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      if (id === fetchIdRef.current) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setIsLoading(false);
+      if (id === fetchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [sellingKey, buyingKey, limit, config.horizonUrl]);
 
@@ -130,6 +138,7 @@ export function useOrderBook(
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      fetchIdRef.current += 1;
     };
   }, [enabled, refetch, refetchInterval]);
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useHookActivityDebug } from "../devtools/useHookActivityDebug";
+import { useStellarContext } from "../context";
 import { StellarHookError } from "../utils/errors";
 
 export interface UseStellarQueryOptions<T> {
@@ -71,7 +72,7 @@ function reducer<T>(state: QueryState<T>, action: QueryAction<T>): QueryState<T>
 }
 
 export function useStellarQuery<T>(
-  fetcher: () => Promise<T | null>,
+  fetcher: (signal?: AbortSignal) => Promise<T | null>,
   options: UseStellarQueryOptions<T> = {}
 ): UseStellarQueryResult<T> {
   const {
@@ -81,6 +82,8 @@ export function useStellarQuery<T>(
     initialData = null,
     debugLabel = "useStellarQuery",
   } = options;
+
+  const { networkEpoch } = useStellarContext();
 
   const [state, dispatch] = useReducer(reducer<T>, {
     data: initialData,
@@ -96,6 +99,7 @@ export function useStellarQuery<T>(
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFetchingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const networkEpochRef = useRef(networkEpoch);
 
   useEffect(() => {
     stateRef.current = state;
@@ -109,6 +113,10 @@ export function useStellarQuery<T>(
     initialDataRef.current = initialData;
   });
 
+  useEffect(() => {
+    networkEpochRef.current = networkEpoch;
+  }, [networkEpoch]);
+
   const refetch = useCallback(async () => {
     if (!enabled) return;
     if (deduplicate && isFetchingRef.current) return;
@@ -118,21 +126,28 @@ export function useStellarQuery<T>(
     }
     abortControllerRef.current = new AbortController();
 
+    const signal = abortControllerRef.current.signal;
+    const epoch = networkEpochRef.current;
+
     isFetchingRef.current = true;
     dispatch({ type: "FETCH_START", hasData: stateRef.current.data !== null });
 
     try {
-      const result = await fetcherRef.current();
+      const result = await fetcherRef.current(signal);
+      if (epoch !== networkEpochRef.current) return;
       dispatch({ type: "FETCH_SUCCESS", payload: result });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      if (epoch !== networkEpochRef.current) return;
       dispatch({
         type: "FETCH_ERROR",
         payload: StellarHookError.from(err),
       });
     } finally {
-      isFetchingRef.current = false;
-      abortControllerRef.current = null;
+      if (epoch === networkEpochRef.current) {
+        isFetchingRef.current = false;
+        abortControllerRef.current = null;
+      }
     }
   }, [enabled, deduplicate]);
 
@@ -168,6 +183,7 @@ export function useStellarQuery<T>(
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
+      isFetchingRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, refetch, refetchInterval, fetcher]);

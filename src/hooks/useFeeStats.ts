@@ -83,10 +83,9 @@ export function useFeeStats(
   const { percentile = 75, refetchInterval = 0, enabled = true } = options;
   const { config } = useStellarContext();
 
-  const fetcher = useCallback(async (): Promise<FeeStats | null> => {
+  const fetcher = useCallback(async (signal?: AbortSignal): Promise<FeeStats | null> => {
     const url = `${config.horizonUrl.replace(/\/$/, "")}/fee_stats`;
-    const controller = new AbortController();
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: signal ?? null });
     if (!response.ok) {
       throw new Error(`Failed to fetch fee stats: ${response.status}`);
     }

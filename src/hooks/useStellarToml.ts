@@ -5,7 +5,7 @@
  * @license MIT
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StellarToml } from "@stellar/stellar-sdk";
 import { getCache, setCache } from "../utils";
 
@@ -53,6 +53,7 @@ export function useStellarToml(
   const [data, setData] = useState<StellarTomlData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const cancelledRef = useRef(false);
 
   const refetch = useCallback(async (force = false) => {
     if (!domain) return;
@@ -70,25 +71,37 @@ export function useStellarToml(
     setError(null);
     try {
       const toml = await StellarToml.Resolver.resolve(domain);
+      if (cancelledRef.current) return;
       const parsed = toml as StellarTomlData;
       setCache(cacheKey, parsed, cacheTTL);
       setData(parsed);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      if (!cancelledRef.current) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setIsLoading(false);
+      if (!cancelledRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [domain, cacheTTL]);
 
   useEffect(() => {
+    cancelledRef.current = false;
     if (domain) {
       void refetch();
-      return;
+      return () => {
+        cancelledRef.current = true;
+      };
     }
 
     setData(null);
     setError(null);
     setIsLoading(false);
+
+    return () => {
+      cancelledRef.current = true;
+    };
   }, [domain, refetch]);
 
   return { data, isLoading, error, refetch: () => refetch(true) };
