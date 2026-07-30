@@ -8,6 +8,7 @@ import {
 import { useStellarContext } from "../context";
 import { useFreighter } from "./useFreighter";
 import { useTransactionCore } from "./useTransactionCore";
+import { parseBalance } from "../utils";
 import { unsafeAsXdrString, unsafeAsAssetIssuer, type StellarBalance, type StellarTransactionError, type TransactionStatus } from "../types";
 
 export type TrustlineAsset = { code: string; issuer: string };
@@ -63,7 +64,7 @@ function parseNonNativeBalance(
     assetCode: lineAsset.asset_code,
     assetIssuer: unsafeAsAssetIssuer(lineAsset.asset_issuer),
     balance: b.balance,
-    balanceFloat: parseFloat(b.balance),
+    balanceFloat: parseBalance(b.balance),
     buyingLiabilities: "buying_liabilities" in b ? b.buying_liabilities : "0",
     sellingLiabilities: "selling_liabilities" in b ? b.selling_liabilities : "0",
     isNative,
