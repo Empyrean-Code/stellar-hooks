@@ -33,13 +33,12 @@ export function useAccountLiquidityPositions(
   const { enabled = true, refetchInterval = 0 } = options;
   const { config } = useStellarContext();
 
-  const fetcher = useCallback(async (): Promise<LiquidityPoolRecord[]> => {
+  const fetcher = useCallback(async (signal?: AbortSignal): Promise<LiquidityPoolRecord[]> => {
     if (!publicKey) return [];
 
     validatePublicKey(publicKey);
     const url = `${config.horizonUrl.replace(/\/$/, "")}/liquidity_pools?account=${publicKey}&limit=200`;
-    const controller = new AbortController();
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: signal ?? null });
     if (!response.ok) {
       throw new Error(`Failed to fetch liquidity positions: ${response.status}`);
     }

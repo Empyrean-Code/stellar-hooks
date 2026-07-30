@@ -78,6 +78,7 @@ export function StellarHooksProvider({
   );
 
   const requestCache = useMemo(() => new Map<string, Promise<unknown>>(), []);
+  const [networkEpoch, setNetworkEpoch] = useState(0);
   const [hookEntries, setHookEntries] = useState<HookActivitySnapshot[]>([]);
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export function StellarHooksProvider({
 
   const switchNetwork = useCallback((newNetwork: StellarNetwork, newCustomConfig?: CustomNetworkConfig) => {
     setNetwork(newNetwork);
+    setNetworkEpoch((prev) => prev + 1);
     localStorage.setItem(NETWORK_STORAGE_KEY, newNetwork);
 
     if (newNetwork === "custom" && newCustomConfig) {
@@ -132,8 +134,8 @@ export function StellarHooksProvider({
   }, [network, customHorizonUrl, customSorobanRpcUrl, customPassphrase]);
 
   const value = useMemo<StellarContextInternalValue>(
-    () => ({ config, network, switchNetwork, requestCache }),
-    [config, network, switchNetwork, requestCache]
+    () => ({ config, network, switchNetwork, requestCache, networkEpoch }),
+    [config, network, switchNetwork, requestCache, networkEpoch]
   );
 
   const registerHookActivity = useCallback(

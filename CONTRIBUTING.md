@@ -49,10 +49,14 @@ Before submitting your changes, ensure the project builds successfully and all t
 ### Run Tests
 
 ```bash
-npm test                    # run all tests
+npm test                    # run all unit/integration (mocked) tests
 npm run test:watch          # watch mode
 npm run test:types          # type definition tests (tsd)
+npm run test:futurenet      # opt-in live Futurenet suite (network required)
 ```
+
+Live Futurenet tests are excluded from `npm test` so default CI stays offline-friendly.
+See [`tests/integration/futurenet/README.md`](tests/integration/futurenet/README.md).
 
 ### Type Checking
 

@@ -15,7 +15,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.test-d.ts", "examples/**/*.test.tsx"],
-    exclude: ["**/node_modules/**", "src/types/branded.test-d.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "src/types/branded.test-d.ts",
+      "tests/integration/**",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

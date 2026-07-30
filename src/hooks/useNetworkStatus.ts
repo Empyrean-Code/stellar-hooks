@@ -5,7 +5,7 @@
  * @license MIT
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStellarContext } from "../context";
 import { getHorizonServer, getRpcServer } from "../utils/memoizedServers";
 
@@ -57,6 +57,8 @@ export function useNetworkStatus(
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  const cancelledRef = useRef(false);
+
   const check = useCallback(async () => {
     setIsLoading(true);
 
@@ -88,24 +90,32 @@ export function useNetworkStatus(
       rpcLatency = Infinity;
     }
 
-    setState((prev) => ({
-      isHorizonHealthy,
-      isRpcHealthy,
-      // Keep the last known ledger if this check couldn't reach Horizon.
-      ledger: ledger ?? prev.ledger,
-      horizonLatency,
-      rpcLatency,
-    }));
-    setIsLoading(false);
+    if (!cancelledRef.current) {
+      setState((prev) => ({
+        isHorizonHealthy,
+        isRpcHealthy,
+        // Keep the last known ledger if this check couldn't reach Horizon.
+        ledger: ledger ?? prev.ledger,
+        horizonLatency,
+        rpcLatency,
+      }));
+    }
+    if (!cancelledRef.current) {
+      setIsLoading(false);
+    }
   }, [horizonServer, rpcServer]);
 
   useEffect(() => {
+    cancelledRef.current = false;
     check();
 
     if (!refetchInterval) return;
 
     const id = setInterval(check, refetchInterval);
-    return () => clearInterval(id);
+    return () => {
+      cancelledRef.current = true;
+      clearInterval(id);
+    };
   }, [check, refetchInterval]);
 
   return { ...state, isLoading, refetch: check };

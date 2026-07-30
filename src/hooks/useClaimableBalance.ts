@@ -203,8 +203,8 @@ export function useClaimableBalances(
       dispatch({
         type: "ERROR",
         payload: err instanceof Error
-          ? (err as unknown as StellarTransactionError)
-          : { type: "transaction", message: String(err) } as StellarTransactionError,
+          ? err
+          : new Error(String(err)),
       });
     }
   }, [publicKey, config.horizonUrl]);
@@ -378,7 +378,11 @@ export function useCreateClaimableBalance(
       }
 
       if (claimants.length === 0) {
-        const claimantErr: StellarTransactionError = { type: "transaction", message: "At least one claimant is required." };
+        const claimantErr: StellarTransactionError = {
+          type: "transaction",
+          resultCode: "invalid_claimants",
+          message: "At least one claimant is required.",
+        };
         throw claimantErr;
       }
 
