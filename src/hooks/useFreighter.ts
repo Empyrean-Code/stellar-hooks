@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   isAllowed,
   signTransaction,
@@ -18,6 +18,7 @@ import type {
   UseFreighterOptions,
   UseFreighterReturn,
 } from "../types";
+import { asPublicKey, unsafeAsXdrString, type StellarPublicKey, type StellarXdrString } from "../types";
 
 // ─── Network mismatch helpers ─────────────────────────────────────────────────
 
@@ -45,68 +46,15 @@ function getNetworkPassphraseMismatch(
       walletPassphrase !== expectedPassphrase
   );
 }
-import { asPublicKey, unsafeAsXdrString, type StellarPublicKey, type StellarXdrString } from "../types";
-
-// ─── State Machine ────────────────────────────────────────────────────────────
-
-type Action =
-  | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_CONNECTED"; publicKey: StellarPublicKey; network: string; networkPassphrase: string }
-  | { type: "SET_DISCONNECTED" }
-  | { type: "SET_NOT_INSTALLED" }
-  | { type: "SET_ERROR"; payload: Error };
-
-type WalletReducerState = Omit<FreighterState, "networkPassphraseMismatch" | "networkPassphraseWarning">;
-
-function reducer(state: WalletReducerState, action: Action): WalletReducerState {
-  switch (action.type) {
-    case "SET_LOADING":
-      return { ...state, isLoading: action.payload, error: null };
-    case "SET_CONNECTED":
-      return {
-        ...state,
-        isInstalled: true,
-        isConnected: true,
-        publicKey: action.publicKey,
-        network: action.network,
-        networkPassphrase: action.networkPassphrase,
-        isLoading: false,
-        error: null,
-      };
-    case "SET_DISCONNECTED":
-      return {
-        ...state,
-        isInstalled: true,
-        isConnected: false,
-        publicKey: null,
-        network: null,
-        networkPassphrase: null,
-        isLoading: false,
-        error: null,
-      };
-    case "SET_NOT_INSTALLED":
-      return { ...state, isInstalled: false, isLoading: false };
-    case "SET_ERROR":
-      return { ...state, isLoading: false, error: action.payload };
-    default:
-      return state;
-  }
-}
-
-const initial: Omit<FreighterState, "networkPassphraseMismatch" | "networkPassphraseWarning"> = {
-  isInstalled: false,
-  isConnected: false,
-  publicKey: null,
-  network: null,
-  networkPassphrase: null,
-  isLoading: true,
-  error: null,
-};
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
  * Connect to and interact with the Freighter browser wallet.
+ *
+ * This is a thin wrapper that maintains backwards compatibility while internally
+ * using the Freighter adapter pattern. For new code, consider using `useWallet`
+ * with the `walletId: "freighter"` option for a unified multi-wallet interface.
  *
  * @example
  * ```tsx
@@ -117,7 +65,15 @@ const initial: Omit<FreighterState, "networkPassphraseMismatch" | "networkPassph
  * ```
  */
 export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn {
-  const [state, dispatch] = useReducer(reducer, initial);
+  const [state, setState] = useState<Omit<FreighterState, "networkPassphraseMismatch" | "networkPassphraseWarning">>({
+    isInstalled: false,
+    isConnected: false,
+    publicKey: null,
+    network: null,
+    networkPassphrase: null,
+    isLoading: true,
+    error: null,
+  });
   const [isSigningMessage, setIsSigningMessage] = useState(false);
   const [isAutoConnecting, setIsAutoConnecting] = useState(false);
   const stellarContext = useOptionalStellarContext();
@@ -144,13 +100,13 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
     let cancelled = false;
 
     async function probe() {
-      dispatch({ type: "SET_LOADING", payload: true });
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
       try {
         const { isConnected: connected, error: connErr } = await normalizeIsConnected();
         if (cancelled) return;
 
         if (connErr || !connected) {
-          dispatch({ type: "SET_NOT_INSTALLED" });
+          setState({ isInstalled: false, isConnected: false, publicKey: null, network: null, networkPassphrase: null, isLoading: false, error: null });
           return;
         }
 
@@ -160,11 +116,14 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
         if (!addrErr && address) {
           const networkDetails = await normalizeGetNetworkDetails();
           if (cancelled) return;
-          dispatch({
-            type: "SET_CONNECTED",
+          setState({
+            isInstalled: true,
+            isConnected: true,
             publicKey: asPublicKey(address),
             network: networkDetails.network ?? "",
             networkPassphrase: networkDetails.networkPassphrase ?? "",
+            isLoading: false,
+            error: null,
           });
         } else if (autoConnect) {
           setIsAutoConnecting(true);
@@ -179,27 +138,34 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
               if (!reconErr && reconAddress) {
                 const networkDetails = await normalizeGetNetworkDetails();
                 if (cancelled) return;
-                dispatch({
-                  type: "SET_CONNECTED",
+                setState({
+                  isInstalled: true,
+                  isConnected: true,
                   publicKey: asPublicKey(reconAddress),
                   network: networkDetails.network ?? "",
                   networkPassphrase: networkDetails.networkPassphrase ?? "",
+                  isLoading: false,
+                  error: null,
                 });
               } else {
-                dispatch({ type: "SET_DISCONNECTED" });
+                setState({ isInstalled: true, isConnected: false, publicKey: null, network: null, networkPassphrase: null, isLoading: false, error: null });
               }
             } else {
-              dispatch({ type: "SET_DISCONNECTED" });
+              setState({ isInstalled: true, isConnected: false, publicKey: null, network: null, networkPassphrase: null, isLoading: false, error: null });
             }
           } finally {
             if (!cancelled) setIsAutoConnecting(false);
           }
         } else {
-          dispatch({ type: "SET_DISCONNECTED" });
+          setState({ isInstalled: true, isConnected: false, publicKey: null, network: null, networkPassphrase: null, isLoading: false, error: null });
         }
       } catch (err) {
         if (!cancelled) {
-          dispatch({ type: "SET_ERROR", payload: err instanceof Error ? err : new Error(String(err)) });
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: err instanceof Error ? err : new Error(String(err)),
+          }));
         }
       }
     }
@@ -209,7 +175,7 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
   }, [autoConnect]);
 
   const connect = useCallback(async () => {
-    dispatch({ type: "SET_LOADING", payload: true });
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
       try {
         const { address, error } = await normalizeRequestAccess();
@@ -233,13 +199,28 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
         dispatch({ type: "SET_ERROR", payload: innerErr instanceof Error ? innerErr : new Error(String(innerErr)) });
         return;
       }
+
+      const networkDetails = await getNetworkDetails();
+      setState({
+        isInstalled: true,
+        isConnected: true,
+        publicKey: asPublicKey(address),
+        network: networkDetails.network ?? "",
+        networkPassphrase: networkDetails.networkPassphrase ?? "",
+        isLoading: false,
+        error: null,
+      });
     } catch (err) {
-      dispatch({ type: "SET_ERROR", payload: err instanceof Error ? err : new Error(String(err)) });
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: err instanceof Error ? err : new Error(String(err)),
+      }));
     }
   }, []);
 
   const disconnect = useCallback(() => {
-    dispatch({ type: "SET_DISCONNECTED" });
+    setState({ isInstalled: true, isConnected: false, publicKey: null, network: null, networkPassphrase: null, isLoading: false, error: null });
   }, []);
 
   const signTx = useCallback(

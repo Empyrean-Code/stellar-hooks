@@ -1,15 +1,59 @@
 import { vi } from "vitest";
 
-export const isConnected = vi.fn().mockResolvedValue({ isConnected: false });
-export const isAllowed = vi.fn().mockResolvedValue({ isAllowed: false });
-export const getAddress = vi.fn().mockResolvedValue({ address: null, error: "Not connected" });
-export const getNetworkDetails = vi.fn().mockResolvedValue({ network: null, networkPassphrase: null });
-export const getNetwork = getNetworkDetails;
-export const requestAccess = vi.fn().mockResolvedValue({ address: null, error: null });
-export const signTransaction = vi.fn().mockResolvedValue({ signedTxXdr: "signed-xdr", error: null });
-export const signAuthEntry = vi.fn().mockResolvedValue({ signedAuthEntry: "signed-entry", error: null });
-export const signMessage = vi.fn().mockResolvedValue({ signedMessage: "signed-blob", signedBlob: "signed-blob", error: null });
+// ---------------------------------------------------------------------------
+// Manual mock for @stellar/freighter-api v6
+//
+// This mock provides typed vi.fn() exports that match the real module's
+// exported shape, so vi.mocked(fn) works without type errors in tests.
+// ---------------------------------------------------------------------------
+
+export const isConnected = vi.fn(() => Promise.resolve({ isConnected: false }));
+export const isAllowed = vi.fn(() => Promise.resolve({ isAllowed: false }));
+export const getAddress = vi.fn(() => Promise.resolve({ address: "" }));
+export const getNetworkDetails = vi.fn(() =>
+  Promise.resolve({ network: "", networkUrl: "", networkPassphrase: "" }),
+);
+export const getNetwork = vi.fn(() =>
+  Promise.resolve({ network: "", networkPassphrase: "" }),
+);
+export const requestAccess = vi.fn(() => Promise.resolve({ address: "" }));
+export const signTransaction = vi.fn(() =>
+  Promise.resolve({ signedTxXdr: "signed-xdr", signerAddress: "" }),
+);
+export const signAuthEntry = vi.fn(() =>
+  Promise.resolve({ signedAuthEntry: "signed-entry", signerAddress: "" }),
+);
+export const signMessage = vi.fn(() =>
+  Promise.resolve({ signedMessage: "signed-blob", signerAddress: "" }),
+);
 export const signBlob = signMessage;
+export const setAllowed = vi.fn(() => Promise.resolve({ isAllowed: false }));
+export const addToken = vi.fn(() => Promise.resolve({ contractId: "" }));
+export const isBrowser = false;
+
+export const WatchWalletChanges = {
+  watch: vi.fn(),
+  stop: vi.fn(),
+};
+
+// Default export matches the real module's default export
+const _default = {
+  getAddress,
+  addToken,
+  signTransaction,
+  signMessage,
+  signAuthEntry,
+  isConnected,
+  getNetwork,
+  getNetworkDetails,
+  isAllowed,
+  setAllowed,
+  requestAccess,
+  WatchWalletChanges,
+};
+export default _default;
+
+// ─── Test helpers ─────────────────────────────────────────────────────────
 
 export function resetFreighterMocks() {
   isConnected.mockReset();
@@ -17,33 +61,33 @@ export function resetFreighterMocks() {
   isAllowed.mockReset();
   isAllowed.mockResolvedValue({ isAllowed: false });
   getAddress.mockReset();
-  getAddress.mockResolvedValue({ address: null, error: "Not connected" });
+  getAddress.mockResolvedValue({ address: "" });
   getNetworkDetails.mockReset();
-  getNetworkDetails.mockResolvedValue({ network: null, networkPassphrase: null });
+  getNetworkDetails.mockResolvedValue({ network: "", networkUrl: "", networkPassphrase: "" });
   requestAccess.mockReset();
-  requestAccess.mockResolvedValue({ address: null, error: null });
+  requestAccess.mockResolvedValue({ address: "" });
   signTransaction.mockReset();
-  signTransaction.mockResolvedValue({ signedTxXdr: "signed-xdr", error: null });
+  signTransaction.mockResolvedValue({ signedTxXdr: "signed-xdr", signerAddress: "" });
   signAuthEntry.mockReset();
-  signAuthEntry.mockResolvedValue({ signedAuthEntry: "signed-entry", error: null });
+  signAuthEntry.mockResolvedValue({ signedAuthEntry: "signed-entry", signerAddress: "" });
   signMessage.mockReset();
-  signMessage.mockResolvedValue({ signedMessage: "signed-blob", signedBlob: "signed-blob", error: null });
+  signMessage.mockResolvedValue({ signedMessage: "signed-blob", signerAddress: "" });
 }
 
 export function mockFreighterConnected(
   publicKey = "GAAZI4BCE7Y5L7S25K2LJKBJHW7X2UHLW4XY5R2DZPHFBUHE5PQ7L2UQ",
   network = "TESTNET",
-  networkPassphrase = "Test SDF Network ; September 2015"
+  networkPassphrase = "Test SDF Network ; September 2015",
 ) {
   isConnected.mockResolvedValue({ isConnected: true });
-  getAddress.mockResolvedValue({ address: publicKey, error: null });
-  getNetworkDetails.mockResolvedValue({ network, networkPassphrase });
+  getAddress.mockResolvedValue({ address: publicKey });
+  getNetworkDetails.mockResolvedValue({ network, networkUrl: "", networkPassphrase });
 }
 
 export function mockFreighterInstalled() {
   isConnected.mockResolvedValue({ isConnected: true });
-  getAddress.mockResolvedValue({ address: null, error: "No address" });
-  getNetworkDetails.mockResolvedValue({ network: null, networkPassphrase: null });
+  getAddress.mockResolvedValue({ address: "" });
+  getNetworkDetails.mockResolvedValue({ network: "", networkUrl: "", networkPassphrase: "" });
 }
 
 export function mockFreighterError(message = "Freighter error") {
