@@ -1,6 +1,6 @@
 /**
  * @file context.tsx
- * @description React Context and Provider for Stellar configuration.
+ * @description React Context and Provider for Stellar configuration with network switch race condition guards.
  * @package stellar-hooks
  * @license MIT
  */
@@ -22,6 +22,8 @@ const CUSTOM_CONFIG_STORAGE_KEY = "stellar-hooks:custom-config";
 
 interface StellarContextInternalValue extends StellarContextValue {
   switchNetwork: (newNetwork: StellarNetwork, newCustomConfig?: CustomNetworkConfig) => void;
+  /** Monotonically increasing version counter incremented on every network switch to guard against race conditions */
+  networkVersion: number;
 }
 
 interface HookActivityRegistration {
@@ -46,13 +48,6 @@ let hookActivityCounter = 0;
 
 /**
  * Wrap your app (or the portion that needs Stellar) with this provider.
- *
- * @example
- * ```tsx
- * <StellarHooksProvider network="testnet">
- *   <App />
- * </StellarHooksProvider>
- * ```
  */
 export function StellarHooksProvider({
   network: initialNetwork,
@@ -66,7 +61,9 @@ export function StellarHooksProvider({
     (initialHorizonUrl || initialSorobanRpcUrl || initialNetworkPassphrase || initialCustomConfig ? "custom" : "testnet");
   const [network, setNetwork] = useState<StellarNetwork>(defaultNetwork);
   
-  // Track custom configs and URLs to support switches and overrides
+  // Monotonically increasing version counter for network switch race condition protection
+  const [networkVersion, setNetworkVersion] = useState<number>(0);
+  
   const [customHorizonUrl, setCustomHorizonUrl] = useState<string | undefined>(
     initialHorizonUrl || initialCustomConfig?.horizonUrl
   );
@@ -98,7 +95,7 @@ export function StellarHooksProvider({
 
   const switchNetwork = useCallback((newNetwork: StellarNetwork, newCustomConfig?: CustomNetworkConfig) => {
     setNetwork(newNetwork);
-    setNetworkEpoch((prev) => prev + 1);
+    setNetworkVersion((v) => v + 1); // Increment version to invalidate in-flight requests
     localStorage.setItem(NETWORK_STORAGE_KEY, newNetwork);
 
     if (newNetwork === "custom" && newCustomConfig) {
@@ -134,8 +131,8 @@ export function StellarHooksProvider({
   }, [network, customHorizonUrl, customSorobanRpcUrl, customPassphrase]);
 
   const value = useMemo<StellarContextInternalValue>(
-    () => ({ config, network, switchNetwork, requestCache, networkEpoch }),
-    [config, network, switchNetwork, requestCache, networkEpoch]
+    () => ({ config, network, switchNetwork, networkVersion, requestCache }),
+    [config, network, switchNetwork, networkVersion, requestCache]
   );
 
   const registerHookActivity = useCallback(
@@ -204,16 +201,6 @@ export function StellarHooksProvider({
   );
 }
 
-/**
- * Wrap your app (or the portion that needs Stellar) with this provider.
- *
- * @example
- * ```tsx
- * <StellarProvider network="testnet">
- *   <App />
- * </StellarProvider>
- * ```
- */
 export function StellarProvider({
   network = "testnet",
   customConfig,
@@ -229,9 +216,6 @@ export function StellarProvider({
   );
 }
 
-/**
- * Optional context reader — returns null when rendered outside {@link StellarProvider} or {@link StellarHooksProvider}.
- */
 export function useOptionalStellarContext(): StellarContextInternalValue | null {
   return useContext(StellarContext);
 }
@@ -240,9 +224,6 @@ export function useOptionalStellarHookDebugContext(): StellarHookDebugContextVal
   return useContext(StellarHookDebugContext);
 }
 
-/**
- * Internal hook — consume the Stellar context inside other hooks.
- */
 export function useStellarContext(): StellarContextInternalValue {
   const ctx = useContext(StellarContext);
   if (!ctx) {
