@@ -206,3 +206,9 @@ export type {
   UseIntersectionObserverOptions,
   UseIntersectionObserverReturn,
 } from "./useIntersectionObserver";
+
+export { useXdrDecoder } from "./useXdrDecoder";
+export type {
+  UseXdrDecoderOptions,
+  UseXdrDecoderReturn,
+} from "./useXdrDecoder";
