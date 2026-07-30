@@ -120,7 +120,7 @@ export function useFeeStats(
   const { percentile = 75, refetchInterval = 0, enabled = true } = options;
   const { config } = useStellarContext();
 
-  const fetcher = useCallback(async (): Promise<FeeStats | null> => {
+  const fetcher = useCallback(async (signal?: AbortSignal): Promise<FeeStats | null> => {
     const url = `${config.horizonUrl.replace(/\/$/, "")}/fee_stats`;
     const response = await fetch(url);
     if (!response.ok) {

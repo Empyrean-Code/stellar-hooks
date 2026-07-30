@@ -94,3 +94,6 @@ export function getCache<T>(key: string): T | null {
 export function setCache<T>(key: string, data: T, ttl: number): void {
   cache.set(key, { data, expires: Date.now() + ttl });
 }
+
+export * from './xdr';
+export * from './errors';

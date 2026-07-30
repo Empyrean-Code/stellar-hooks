@@ -113,6 +113,7 @@ export function useSorobanTokenBalance(
   const { config } = useStellarContext();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchGenRef = useRef(0);
   const refetchRef = useRef<(force?: boolean) => Promise<void>>(() => Promise.resolve());
 
   const [state, dispatch] = useReducer(reducer, {
@@ -128,6 +129,8 @@ export function useSorobanTokenBalance(
     async (force = false) => {
       if (!contractId || !accountAddress) return;
 
+      const gen = ++fetchGenRef.current;
+
       // Abort any in-flight request before starting a new one
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -139,6 +142,7 @@ export function useSorobanTokenBalance(
       if (!force) {
         const cached = getCache<bigint>(cacheKey);
         if (cached !== null) {
+          if (gen !== fetchGenRef.current) return;
           dispatch({ type: "FETCH_SUCCESS", payload: cached });
           return;
         }
@@ -160,6 +164,7 @@ export function useSorobanTokenBalance(
 
         // Use simulateTransaction to read without signing
         const account = await server.getAccount(accountAddress);
+        if (gen !== fetchGenRef.current) return;
         const tx = new TransactionBuilder(account, {
           fee: "100",
           networkPassphrase: config.networkPassphrase,
@@ -169,6 +174,7 @@ export function useSorobanTokenBalance(
           .build();
 
         const simResult = await server.simulateTransaction(tx);
+        if (gen !== fetchGenRef.current) return;
 
         if (rpc.Api.isSimulationError(simResult)) {
           throw new Error(simResult.error);
@@ -180,10 +186,12 @@ export function useSorobanTokenBalance(
 
         const raw = scValToNative(simResult.result.retval) as bigint;
         setCache(cacheKey, raw, cacheTTL);
+        if (gen !== fetchGenRef.current) return;
         dispatch({ type: "FETCH_SUCCESS", payload: raw });
       } catch (err) {
         // Ignore AbortError from cancelled requests
         if (err instanceof Error && err.name === "AbortError") return;
+        if (gen !== fetchGenRef.current) return;
         dispatch({
           type: "FETCH_ERROR",
           payload: err instanceof Error ? err : new Error(String(err)),
@@ -202,6 +210,7 @@ export function useSorobanTokenBalance(
     void fetch();
 
     return () => {
+      ++fetchGenRef.current;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;

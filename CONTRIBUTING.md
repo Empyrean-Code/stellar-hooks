@@ -162,6 +162,7 @@ Keep the description under 70 characters. Reference the issue in the PR body, no
 2. Run `npm run lint` — ensure zero lint warnings
 3. Run `npm test` — ensure all tests pass
 4. Run `npm run build` — ensure the project builds
+5. Run `npm run changeset` — create a changeset to document your changes
 
 ### Pull Request Checklist
 
@@ -174,6 +175,7 @@ Keep the description under 70 characters. Reference the issue in the PR body, no
 - [ ] All tests pass
 - [ ] Build succeeds
 - [ ] Documentation is updated if necessary
+- [ ] A changeset has been added to document version changes
 
 ## Code Review
 
