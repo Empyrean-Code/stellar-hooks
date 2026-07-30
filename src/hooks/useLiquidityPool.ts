@@ -119,12 +119,11 @@ export function useLiquidityPool(
     ...(onError && { onError }),
   });
 
-  const fetcher = useCallback(async (): Promise<LiquidityPoolRecord | null> => {
+  const fetcher = useCallback(async (signal?: AbortSignal): Promise<LiquidityPoolRecord | null> => {
     if (!poolId) return null;
 
     const url = `${config.horizonUrl.replace(/\/$/, "")}/liquidity_pools/${poolId}`;
-    const controller = new AbortController();
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: signal ?? null });
     if (!response.ok) {
       throw new Error(`Failed to fetch liquidity pool: ${response.status}`);
     }

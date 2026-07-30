@@ -96,9 +96,12 @@ export function useTrades(
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchIdRef = useRef(0);
 
   const refetch = useCallback(async () => {
     if (!publicKey) return;
+
+    const id = ++fetchIdRef.current;
 
     setIsLoading(true);
     setError(null);
@@ -120,12 +123,17 @@ export function useTrades(
       }
 
       const response = await query.call();
+      if (id !== fetchIdRef.current) return;
       setTrades(response.records as unknown as TradeRecord[]);
       setLastFetchedAt(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      if (id === fetchIdRef.current) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setIsLoading(false);
+      if (id === fetchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [publicKey, cursor, limit, order, baseAsset, counterAsset, config.horizonUrl]);
 
@@ -143,6 +151,7 @@ export function useTrades(
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      fetchIdRef.current += 1;
     };
   }, [enabled, publicKey, refetch, refetchInterval]);
 

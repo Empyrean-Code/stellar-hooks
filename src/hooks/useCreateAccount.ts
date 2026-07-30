@@ -4,7 +4,7 @@
  * @package stellar-hooks
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Horizon, TransactionBuilder, Operation } from "@stellar/stellar-sdk";
 import { useStellarContext } from "../context";
 import type { StellarTransactionError } from "../types";
@@ -57,6 +57,7 @@ export function useCreateAccount(options: UseCreateAccountOptions = {}): UseCrea
   const { config, network } = useStellarContext();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<StellarTransactionError | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fundWithFriendbot = useCallback(
     async (publicKey: string) => {
