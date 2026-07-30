@@ -52,7 +52,6 @@ export function useSequenceNumber(
     debugLabel: "useSequenceNumber",
   });
 
-
   const refresh = useCallback(async () => {
     setIncrementCount(0);
     await state.refetch();

@@ -43,7 +43,7 @@ interface ContractState<TResult> {
 
 type Action<TResult> =
   | { type: "RESET" }
-  | { type: "BUILDING" }
+  | { type: "BUILDING"; optimisticResult?: TResult }
   | {
       type: "SIMULATION";
       payload: {
@@ -85,6 +85,9 @@ function createReducer<TResult>() {
           error: null,
           simulation: null,
           estimatedCost: null,
+          ...(action.optimisticResult !== undefined
+            ? { result: action.optimisticResult }
+            : {}),
         };
       case "SIMULATION":
         return {
@@ -178,6 +181,10 @@ export function useSorobanContract<TResult = unknown>(
     simulation: null,
     estimatedCost: null,
   });
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useHookActivityDebug({
     name: "useSorobanContract",
@@ -189,7 +196,7 @@ export function useSorobanContract<TResult = unknown>(
     (
       simulation: rpc.Api.SimulateTransactionResponse,
     ): SorobanSimulationEstimate => {
-      const simulationRecord = simulation as Record<string, unknown>;
+      const simulationRecord = simulation as unknown as Record<string, unknown>;
       const cost =
         "cost" in simulationRecord ? simulationRecord.cost ?? null : null;
       const costRecord =
@@ -254,7 +261,10 @@ export function useSorobanContract<TResult = unknown>(
         validateContractId(contractId);
 
         // ── 1. Build ──────────────────────────────────────────────────────────
-        dispatch({ type: "BUILDING", optimisticResult });
+        dispatch({
+          type: "BUILDING",
+          ...(optimisticResult !== undefined ? { optimisticResult } : {}),
+        });
 
         // rpc is the correct namespace in @stellar/stellar-sdk@13 (previously SorobanRpc)
         const server = sorobanRpcServer ?? new rpc.Server(config.sorobanRpcUrl);
