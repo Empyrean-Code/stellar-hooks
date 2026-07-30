@@ -103,8 +103,8 @@ export function useTrustlines(
         listDispatch({
           type: "ERROR",
           payload: err instanceof Error
-            ? (err as unknown as StellarTransactionError)
-            : { type: "transaction", message: String(err) } as StellarTransactionError,
+            ? err
+            : new Error(String(err)),
         });
       }
     }

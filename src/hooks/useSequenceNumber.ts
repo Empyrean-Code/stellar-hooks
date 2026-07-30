@@ -49,9 +49,8 @@ export function useSequenceNumber(
   const state = useStellarQuery<string | null>(fetcher, {
     enabled: enabled && Boolean(publicKey),
     initialData: null,
-  });
     debugLabel: "useSequenceNumber",
-
+  });
 
   const refresh = useCallback(async () => {
     setIncrementCount(0);

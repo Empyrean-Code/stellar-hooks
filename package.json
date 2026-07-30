@@ -681,6 +681,7 @@
     "test:watch": "vitest",
     "test:types": "tsd --files src/types/branded.test-d.ts",
     "test:tree-shaking": "node scripts/test-tree-shaking.mjs",
+    "test:futurenet": "cross-env NODE_OPTIONS=\"--experimental-require-module\" RUN_FUTURENET_TESTS=1 vitest run --config vitest.futurenet.config.ts --no-file-parallelism",
     "test:e2e": "playwright test",
     "prepare": "husky",
     "prepublishOnly": "npm run build",
