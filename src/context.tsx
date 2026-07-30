@@ -75,6 +75,7 @@ export function StellarHooksProvider({
   );
 
   const requestCache = useMemo(() => new Map<string, Promise<unknown>>(), []);
+  const [networkEpoch, setNetworkEpoch] = useState(0);
   const [hookEntries, setHookEntries] = useState<HookActivitySnapshot[]>([]);
 
   useEffect(() => {

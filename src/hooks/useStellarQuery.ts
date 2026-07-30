@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useHookActivityDebug } from "../devtools/useHookActivityDebug";
+import { useStellarContext } from "../context";
+import { StellarHookError } from "../utils/errors";
 
 export interface UseStellarQueryOptions<T> {
   enabled?: boolean;
@@ -13,7 +15,7 @@ export interface UseStellarQueryResult<T> {
   data: T | null;
   isLoading: boolean;
   isRefetching: boolean;
-  error: Error | null;
+  error: StellarHookError | null;
   lastFetchedAt: Date | null;
   refetch: () => Promise<void>;
 }
@@ -22,14 +24,14 @@ interface QueryState<T> {
   data: T | null;
   isLoading: boolean;
   isRefetching: boolean;
-  error: Error | null;
+  error: StellarHookError | null;
   lastFetchedAt: Date | null;
 }
 
 type QueryAction<T> =
   | { type: "FETCH_START"; hasData: boolean }
   | { type: "FETCH_SUCCESS"; payload: T | null }
-  | { type: "FETCH_ERROR"; payload: Error }
+  | { type: "FETCH_ERROR"; payload: StellarHookError }
   | { type: "RESET"; payload: T | null };
 
 function reducer<T>(state: QueryState<T>, action: QueryAction<T>): QueryState<T> {
@@ -70,7 +72,7 @@ function reducer<T>(state: QueryState<T>, action: QueryAction<T>): QueryState<T>
 }
 
 export function useStellarQuery<T>(
-  fetcher: () => Promise<T | null>,
+  fetcher: (signal?: AbortSignal) => Promise<T | null>,
   options: UseStellarQueryOptions<T> = {}
 ): UseStellarQueryResult<T> {
   const {
@@ -80,6 +82,8 @@ export function useStellarQuery<T>(
     initialData = null,
     debugLabel = "useStellarQuery",
   } = options;
+
+  const { networkEpoch } = useStellarContext();
 
   const [state, dispatch] = useReducer(reducer<T>, {
     data: initialData,
@@ -95,6 +99,7 @@ export function useStellarQuery<T>(
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFetchingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const networkEpochRef = useRef(networkEpoch);
 
   useEffect(() => {
     stateRef.current = state;
@@ -108,36 +113,52 @@ export function useStellarQuery<T>(
     initialDataRef.current = initialData;
   });
 
+  useEffect(() => {
+    networkEpochRef.current = networkEpoch;
+  }, [networkEpoch]);
+
   const refetch = useCallback(async () => {
     if (!enabled) return;
     if (deduplicate && isFetchingRef.current) return;
 
-    // Abort any in-flight request before starting a new one
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
 
+    const signal = abortControllerRef.current.signal;
+    const epoch = networkEpochRef.current;
+
     isFetchingRef.current = true;
     dispatch({ type: "FETCH_START", hasData: stateRef.current.data !== null });
 
     try {
-      const result = await fetcherRef.current();
+      const result = await fetcherRef.current(signal);
+      if (epoch !== networkEpochRef.current) return;
       dispatch({ type: "FETCH_SUCCESS", payload: result });
     } catch (err) {
-      // Ignore AbortError from cancelled requests
       if (err instanceof Error && err.name === "AbortError") return;
+      if (epoch !== networkEpochRef.current) return;
       dispatch({
         type: "FETCH_ERROR",
-        payload: err instanceof Error ? err : new Error(String(err)),
+        payload: StellarHookError.from(err),
       });
     } finally {
-      isFetchingRef.current = false;
-      abortControllerRef.current = null;
+      if (epoch === networkEpochRef.current) {
+        isFetchingRef.current = false;
+        abortControllerRef.current = null;
+      }
     }
   }, [enabled, deduplicate]);
 
   useEffect(() => {
+    // 1. Always clear any existing interval before setting up a new one
+    // to prevent memory/network leaks when dependencies change.
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     if (!enabled) {
       dispatch({ type: "RESET", payload: initialDataRef.current });
       return;
@@ -145,15 +166,14 @@ export function useStellarQuery<T>(
 
     void refetch();
 
+    // 2. Set new interval if required
     if (refetchInterval > 0) {
       timerRef.current = setInterval(() => {
         void refetch();
       }, refetchInterval);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
     }
 
+    // 3. Cleanup on unmount or dependency change
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -163,12 +183,8 @@ export function useStellarQuery<T>(
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
+      isFetchingRef.current = false;
     };
-    // initialData intentionally omitted: read via initialDataRef instead.
-    // Depending on it directly would re-run this effect on every render
-    // whenever a caller passes an inline literal (e.g. `initialData: []`),
-    // since a fresh array/object reference never equals the previous one -
-    // causing an infinite fetch -> render -> fetch loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, refetch, refetchInterval, fetcher]);
 

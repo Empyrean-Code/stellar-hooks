@@ -625,6 +625,12 @@ export interface StellarContextValue {
   network: StellarNetwork;
   /** Provider-scoped in-memory map for deduplicating in-flight requests. */
   requestCache: Map<string, Promise<unknown>>;
+  /**
+   * Monotonically increasing counter incremented on every network switch.
+   * Hooks compare the epoch at fetch-start vs fetch-end to discard stale
+   * responses from a previous network.
+   */
+  networkEpoch: number;
 }
 
 export interface HookActivitySnapshot {

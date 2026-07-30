@@ -84,9 +84,12 @@ export function useOperations(
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchIdRef = useRef(0);
 
   const refetch = useCallback(async () => {
     if (!accountId && !transactionHash) return;
+
+    const id = ++fetchIdRef.current;
 
     setIsLoading(true);
     setError(null);
@@ -108,12 +111,17 @@ export function useOperations(
       }
 
       const response = await query.call();
+      if (id !== fetchIdRef.current) return;
       setOperations(response.records);
       setLastFetchedAt(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      if (id === fetchIdRef.current) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setIsLoading(false);
+      if (id === fetchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [accountId, transactionHash, cursor, limit, order, includeFailed, config.horizonUrl]);
 
@@ -131,6 +139,7 @@ export function useOperations(
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      fetchIdRef.current += 1;
     };
   }, [enabled, accountId, transactionHash, refetch, refetchInterval]);
 

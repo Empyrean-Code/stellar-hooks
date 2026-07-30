@@ -2,6 +2,9 @@
   "name": "stellar-hooks",
   "version": "0.2.0",
   "sideEffects": false,
+  "workspaces": [
+    "packages/*"
+  ],
   "description": "React hooks for Stellar and Soroban — useFreighter, useStellarAccount, useSorobanContract, useTransaction, and more.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -681,6 +684,7 @@
     "test:watch": "vitest",
     "test:types": "tsd --files src/types/branded.test-d.ts",
     "test:tree-shaking": "node scripts/test-tree-shaking.mjs",
+    "test:futurenet": "cross-env NODE_OPTIONS=\"--experimental-require-module\" RUN_FUTURENET_TESTS=1 vitest run --config vitest.futurenet.config.ts --no-file-parallelism",
     "test:e2e": "playwright test",
     "prepare": "husky",
     "prepublishOnly": "npm run build",
@@ -722,7 +726,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/spiffamani/stellar-hooks.git"
+    "url": "https://github.com/dark-princezz/stellar-hooks.git"
   },
   "engines": {
     "node": ">=18"
