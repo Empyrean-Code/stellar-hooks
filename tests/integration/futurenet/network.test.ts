@@ -91,7 +91,24 @@ describe("Futurenet live network (SDK)", () => {
     expect(fundResponse.ok).toBe(true);
 
     const server = getHorizonServer(FUTURENET.horizonUrl);
-    const account = await server.loadAccount(publicKey);
+    // Friendbot submits asynchronously — poll Horizon briefly for propagation.
+    let account: Horizon.AccountResponse | null = null;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        account = await server.loadAccount(publicKey);
+        break;
+      } catch (err) {
+        lastError = err;
+        await new Promise((r) => setTimeout(r, 1_000));
+      }
+    }
+    if (!account) {
+      throw lastError instanceof Error
+        ? lastError
+        : new Error(`Account ${publicKey} not found after Friendbot funding`);
+    }
+
     expect(account.accountId()).toBe(publicKey);
     expect(account.balances.length).toBeGreaterThan(0);
   });
