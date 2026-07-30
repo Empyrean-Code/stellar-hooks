@@ -206,3 +206,4 @@ export type {
   UseIntersectionObserverOptions,
   UseIntersectionObserverReturn,
 } from "./useIntersectionObserver";
+export { useXBull } from './useXBull';
