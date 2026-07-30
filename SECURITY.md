@@ -2,57 +2,45 @@
 
 ## Supported Versions
 
-Only the current latest release is supported with security updates.
+We take the security of `stellar-hooks` and the applications built with it very seriously. Because this library interacts directly with user cryptographic keys, browser extension wallets (Freighter, Albedo, LOBSTR), and Soroban smart contract RPC endpoints, we actively maintain and patch the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| 0.2.x   | :white_check_mark: |
+| < 0.2   | :x:                |
+
+---
 
 ## Reporting a Vulnerability
 
-We take the security of **Stellar Hooks** seriously. If you discover a security vulnerability, please report it by either of the following methods:
+If you discover a security vulnerability within `stellar-hooks`—especially concerning key handling, transaction payload tampering, signing logic flaws, or unintended exposure of sensitive data—please **do not open a public GitHub issue**.
 
-- **GitHub Private Vulnerability Reporting**: Use the ["Report a Vulnerability"](https://github.com/dark-princezz/stellar-hooks/security/advisories/new) feature under the repository's Security tab.
-- **Email**: Send details to the project maintainers at [stellar-hooks-security@googlegroups.com](mailto:stellar-hooks-security@googlegroups.com).
+Instead, please report it via one of the following channels for responsible disclosure:
 
-Please do **not** report security vulnerabilities via public GitHub issues or discussions.
+1. **GitHub Security Advisories:** Use the [Private Vulnerability Reporting](https://github.com/Empyrean-Code/stellar-hooks/security/advisories/new) feature on the repository.
+2. **Direct Maintainer Contact:** Reach out directly to the core maintainers via the repository organization contact.
 
-## What to Include
+Please include as much detail as possible to help us reproduce and remediate the issue quickly:
+* Type of vulnerability (e.g., signing bypass, key extraction, injection).
+* Full paths of source file(s) related to the vulnerability.
+* Step-by-step instructions to reproduce the issue.
+* Proof-of-concept or exploit code if applicable.
 
-When reporting, please include as much of the following information as possible:
+You can expect an acknowledgment of your report within **48 hours**, followed by regular updates on progress towards a fix and coordinated public disclosure.
 
-- A description of the vulnerability
-- Steps to reproduce
-- Affected versions and configurations
-- Potential impact and exploitability
+---
 
-## Disclosure Policy
+## Scope & Security Best Practices
 
-We follow a coordinated disclosure process:
+When building Stellar and Soroban dApps using `stellar-hooks`, keep the following security considerations in mind:
 
-1. The report is acknowledged within **48 hours**.
-2. A fix is validated and prepared for the next patch release.
-3. Once a fix is released, the vulnerability is publicly disclosed.
+### 1. Wallet Interaction & Key Handling
+* **No Private Keys in State:** `stellar-hooks` never stores, caches, or exposes raw user private keys or seed phrases in React state or local storage. All signing operations are delegated securely to external browser extensions (Freighter, LOBSTR, Albedo) or WalletConnect bridges.
+* **Network Passphrase Verification:** Always ensure your dApp's expected network passphrase matches the active wallet provider network to prevent transaction replay attacks across Mainnet and Testnet.
 
-We aim to release fixes as quickly as possible, typically within **7 days** of confirmation.
+### 2. Soroban Contract Execution
+* Carefully inspect transaction simulation results and contract arguments (`args`) before triggering `useSorobanContract` or `useTransaction`.
+* Validate all user inputs and account addresses prior to passing them into hooks like `useStellarAccount` or `usePayment`.
 
-## Preferred Encryption
-
-If you need to encrypt sensitive information, you may use our PGP key:
-
-```
------BEGIN PGP PUBLIC KEY BLOCK-----
-
-mQINBGP6G6MBEAC...
------END PGP PUBLIC KEY BLOCK-----
-```
-
-You can also fetch the key from public keyservers:
-
-```
-gpg --keyserver keys.openpgp.org --search-keys stellar-hooks-security@googlegroups.com
-```
-
-## Recognition
-
-We thank all reporters who follow responsible disclosure practices. With your permission, we will acknowledge your contribution in the release notes once the fix is published.
+### 3. Dependencies
+* Keep `@stellar/stellar-sdk` and wallet connector packages updated to their latest secure patch releases.
