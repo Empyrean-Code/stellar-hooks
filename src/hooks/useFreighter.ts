@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import {
-  isConnected,
   isAllowed,
-  getAddress,
-  getNetworkDetails,
-  requestAccess,
   signTransaction,
   signAuthEntry,
   signMessage,
 } from "@stellar/freighter-api";
 import { useOptionalStellarContext } from "../context";
+import {
+  normalizeGetAddress,
+  normalizeGetNetworkDetails,
+  normalizeIsConnected,
+  normalizeRequestAccess,
+} from "../wallets/freighter-normalization";
 import type {
   FreighterState,
   SignTransactionOptions,
@@ -144,7 +146,7 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
     async function probe() {
       dispatch({ type: "SET_LOADING", payload: true });
       try {
-        const { isConnected: connected, error: connErr } = await isConnected();
+        const { isConnected: connected, error: connErr } = await normalizeIsConnected();
         if (cancelled) return;
 
         if (connErr || !connected) {
@@ -152,11 +154,11 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
           return;
         }
 
-        const { address, error: addrErr } = await getAddress();
+        const { address, error: addrErr } = await normalizeGetAddress();
         if (cancelled) return;
 
         if (!addrErr && address) {
-          const networkDetails = await getNetworkDetails();
+          const networkDetails = await normalizeGetNetworkDetails();
           if (cancelled) return;
           dispatch({
             type: "SET_CONNECTED",
@@ -171,11 +173,11 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
             if (cancelled) return;
 
             if (allowed) {
-              const { address: reconAddress, error: reconErr } = await requestAccess();
+              const { address: reconAddress, error: reconErr } = await normalizeRequestAccess();
               if (cancelled) return;
 
               if (!reconErr && reconAddress) {
-                const networkDetails = await getNetworkDetails();
+                const networkDetails = await normalizeGetNetworkDetails();
                 if (cancelled) return;
                 dispatch({
                   type: "SET_CONNECTED",
@@ -210,9 +212,9 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
     dispatch({ type: "SET_LOADING", payload: true });
     try {
       try {
-        const { address, error } = await requestAccess();
+        const { address, error } = await normalizeRequestAccess();
         if (error) {
-          dispatch({ type: "SET_ERROR", payload: new Error(error.message || String(error)) });
+          dispatch({ type: "SET_ERROR", payload: error });
           return;
         }
         if (!address) {
@@ -220,7 +222,7 @@ export function useFreighter(options?: UseFreighterOptions): UseFreighterReturn 
           return;
         }
 
-        const networkDetails = await getNetworkDetails();
+        const networkDetails = await normalizeGetNetworkDetails();
         dispatch({
           type: "SET_CONNECTED",
           publicKey: asPublicKey(address),
