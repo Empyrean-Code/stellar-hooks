@@ -145,7 +145,7 @@ export function useAlbedo(options?: UseAlbedoOptions): UseAlbedoReturn {
           ...(opts?.network && { network: opts.network }),
           ...(opts?.submit !== undefined && { submit: opts.submit }),
         });
-        const signedXdr = res.signed_envelope || res.xdr;
+        const signedXdr = res.signed_envelope_xdr || res.xdr;
         if (!signedXdr) {
           throw new Error("No signed transaction returned from Albedo");
         }
@@ -175,10 +175,10 @@ export function useAlbedo(options?: UseAlbedoOptions): UseAlbedoReturn {
           message,
           ...(pubkeyToUse && { pubkey: pubkeyToUse }),
         });
-        if (!res.signature) {
+        if (!res.message_signature) {
           throw new Error("No signature returned from Albedo");
         }
-        return res.signature;
+        return res.message_signature;
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
         setError(e);

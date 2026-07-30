@@ -21,10 +21,13 @@ export function useOffers(
   const [prevCursor, setPrevCursor] = useState<string | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchIdRef = useRef(0);
 
   const fetchPage = useCallback(
     async (cursor?: string | null) => {
       if (!publicKey) return;
+
+      const id = ++fetchIdRef.current;
 
       setIsLoading(true);
       setError(null);
@@ -34,6 +37,7 @@ export function useOffers(
         const server = getHorizonServer(config.horizonUrl);
         const query = server.offers().forAccount(publicKey).limit(limit);
         const response = cursor ? await query.cursor(cursor).call() : await query.call();
+        if (id !== fetchIdRef.current) return;
         const collection = response as Horizon.ServerApi.CollectionPage<Horizon.ServerApi.OfferRecord> & {
           _links?: {
             next?: { href?: string };
@@ -46,9 +50,13 @@ export function useOffers(
         setNextCursor(nextLink ? new URL(nextLink).searchParams.get("cursor") : null);
         setPrevCursor(prevLink ? new URL(prevLink).searchParams.get("cursor") : null);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
+        if (id === fetchIdRef.current) {
+          setError(err instanceof Error ? err : new Error(String(err)));
+        }
       } finally {
-        setIsLoading(false);
+        if (id === fetchIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [publicKey, config.horizonUrl, limit]
@@ -84,6 +92,7 @@ export function useOffers(
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      fetchIdRef.current += 1;
     };
   }, [enabled, publicKey, refetch, refetchInterval]);
 
